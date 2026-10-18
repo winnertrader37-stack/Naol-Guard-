@@ -1,7 +1,7 @@
 name: Build Naol Private APK
 
 'on':
-workflow_dispatch:
+workflow_dispatch: {}
 push:
 branches:
 - main
@@ -35,10 +35,9 @@ steps:
 
   - name: Install Android SDK packages
     run: |
-      sdkmanager --update
       sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-  - name: Verify required project files
+  - name: Check required files
     run: |
       set -eu
       test -f settings.gradle.kts
@@ -49,18 +48,13 @@ steps:
       test -f app/src/main/java/com/naol/privateapp/MainActivity.kt
       test -f app/src/main/java/com/naol/privateapp/AlarmService.kt
 
-  - name: Build debug APK
+  - name: Build APK
     run: gradle --no-daemon clean assembleDebug
 
   - name: Validate APK
-    run: |
-      set -eu
-      APK="app/build/outputs/apk/debug/app-debug.apk"
-      test -s "$APK"
-      echo "APK build successful"
-      ls -lh "$APK"
+    run: test -s app/build/outputs/apk/debug/app-debug.apk
 
-  - name: Upload APK artifact
+  - name: Upload APK
     uses: actions/upload-artifact@v4
     with:
       name: Naol-Private-debug-apk
