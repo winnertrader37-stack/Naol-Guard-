@@ -60,9 +60,6 @@ jobs:
               echo "MISSING  $f"
             fi
           done
-          echo "=== Kotlin files and manifests found anywhere ==="
-          find . -name "*.kt" -not -path "./.git/*" || true
-          find . -name "AndroidManifest.xml" -not -path "./.git/*" || true
 
       - name: Write Gradle config
         run: |
@@ -155,12 +152,24 @@ jobs:
       - name: Build APK
         run: |
           set +e
-          gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee build.log
+          gradle --no-daemon --console=plain :app:assembleDebug 2>&1 | tee build.log
           STATUS=${PIPESTATUS[0]}
           if [ "$STATUS" -ne 0 ]; then
-            grep -E "^e: |What went wrong|Execution failed|error:|Could not|not found|Unresolved|AAPT" build.log \
-              | head -n 12 \
-              | while IFS= read -r line; do echo "::error title=Gradle error::$line"; done
+            echo ""
+            echo "################ REAL ERROR ################"
+            sed -n '/What went wrong/,/\* Try:/p' build.log | head -n 25 | tee real-error.txt
+            grep -E "^e: |^w: .*error" build.log | head -n 15 | tee -a real-error.txt
+            echo "############################################"
+
+            {
+              echo "## Build error"
+              echo '```'
+              cat real-error.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            MSG="$(head -n 25 real-error.txt | sed ':a;N;$!ba;s/\n/%0A/g')"
+            echo "::error title=Gradle build failed::$MSG"
           fi
           exit "$STATUS"
 
