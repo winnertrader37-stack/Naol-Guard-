@@ -1,24 +1,23 @@
 name: Build Naol Private APK
 
 'on':
-workflow_dispatch: {}
+workflow_dispatch:
+{}
 push:
-branches:
-- main
+branches: [main]
 
 permissions:
 contents: read
 
 jobs:
 build:
-name: Build and Validate APK
 runs-on: ubuntu-latest
 
 steps:
   - name: Checkout source
     uses: actions/checkout@v4
 
-  - name: Set up Java 17
+  - name: Set up Java
     uses: actions/setup-java@v4
     with:
       distribution: temurin
@@ -34,10 +33,9 @@ steps:
     run: yes | sdkmanager --licenses || true
 
   - name: Install Android SDK packages
-    run: |
-      sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+    run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-  - name: Check required files
+  - name: Verify project files
     run: |
       set -eu
       test -f settings.gradle.kts
@@ -51,7 +49,7 @@ steps:
   - name: Build APK
     run: gradle --no-daemon clean assembleDebug
 
-  - name: Validate APK
+  - name: Check APK
     run: test -s app/build/outputs/apk/debug/app-debug.apk
 
   - name: Upload APK
@@ -60,4 +58,3 @@ steps:
       name: Naol-Private-debug-apk
       path: app/build/outputs/apk/debug/app-debug.apk
       if-no-files-found: error
-      retention-days: 14
