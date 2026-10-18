@@ -35,7 +35,6 @@ jobs:
         run: |
           set -eu
           SDKM="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -n 1)"
-          echo "Found: $SDKM"
           test -n "$SDKM"
           echo "$(dirname "$SDKM")" >> "$GITHUB_PATH"
 
@@ -45,46 +44,106 @@ jobs:
       - name: Install Android SDK packages
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Verify project files
+      - name: Check source files
         run: |
-          echo "=== Repo files ==="
-          find . -type f -not -path "./.git/*" | sort
-          echo "=== Checking required files ==="
-          for f in \
-            settings.gradle.kts \
-            build.gradle.kts \
-            gradle.properties \
-            app/build.gradle.kts \
-            app/src/main/AndroidManifest.xml \
-            app/src/main/java/com/naol/privateapp/MainActivity.kt \
-            app/src/main/java/com/naol/privateapp/AlarmService.kt
-          do
-            if [ -f "$f" ]; then
-              echo "OK       $f"
-            else
-              echo "MISSING  $f"
-            fi
-          done
+          set -eu
+          test -f app/src/main/AndroidManifest.xml
+          test -f app/src/main/java/com/naol/privateapp/MainActivity.kt
+          test -f app/src/main/java/com/naol/privateapp/AlarmService.kt
 
-      - name: Make sure app module is included
+      - name: Write Gradle config
         run: |
-          echo "=== settings.gradle.kts (before) ==="
-          cat settings.gradle.kts
-          if ! grep -q ':app' settings.gradle.kts; then
-            echo "" >> settings.gradle.kts
-            echo 'include(":app")' >> settings.gradle.kts
-            echo "Added include(\":app\")"
-          fi
-          echo "=== settings.gradle.kts (after) ==="
-          cat settings.gradle.kts
+          cat > settings.gradle.kts <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "NaolPrivate"
+          include(":app")
+          EOF
+
+          cat > build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application") version "8.7.3" apply false
+              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat > app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "com.naol.privateapp"
+              compileSdk = 35
+              buildToolsVersion = "35.0.0"
+
+              defaultConfig {
+                  applicationId = "com.naol.privateapp"
+                  minSdk = 26
+                  targetSdk = 35
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+
+              buildTypes {
+                  debug {
+                      isMinifyEnabled = false
+                  }
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+
+              lint {
+                  abortOnError = false
+              }
+          }
+
+          dependencies {
+              implementation("androidx.core:core-ktx:1.13.1")
+              implementation("androidx.appcompat:appcompat:1.7.0")
+              implementation("com.google.android.material:material:1.12.0")
+          }
+          EOF
+
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Show projects
+        run: gradle --no-daemon --console=plain projects
 
       - name: Build APK
         run: |
           set +e
-          gradle --no-daemon --stacktrace --console=plain assembleDebug 2>&1 | tee build.log
+          gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee build.log
           STATUS=${PIPESTATUS[0]}
           if [ "$STATUS" -ne 0 ]; then
-            grep -E "^e: |What went wrong|Execution failed|^> |error:|Could not|not found|Unresolved" build.log \
+            grep -E "^e: |What went wrong|Execution failed|error:|Could not|not found|Unresolved|AAPT" build.log \
               | head -n 12 \
               | while IFS= read -r line; do echo "::error title=Gradle error::$line"; done
           fi
