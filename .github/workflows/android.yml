@@ -66,10 +66,22 @@ jobs:
             fi
           done
 
+      - name: Make sure app module is included
+        run: |
+          echo "=== settings.gradle.kts (before) ==="
+          cat settings.gradle.kts
+          if ! grep -q ':app' settings.gradle.kts; then
+            echo "" >> settings.gradle.kts
+            echo 'include(":app")' >> settings.gradle.kts
+            echo "Added include(\":app\")"
+          fi
+          echo "=== settings.gradle.kts (after) ==="
+          cat settings.gradle.kts
+
       - name: Build APK
         run: |
           set +e
-          gradle --no-daemon --stacktrace --console=plain clean assembleDebug 2>&1 | tee build.log
+          gradle --no-daemon --stacktrace --console=plain assembleDebug 2>&1 | tee build.log
           STATUS=${PIPESTATUS[0]}
           if [ "$STATUS" -ne 0 ]; then
             grep -E "^e: |What went wrong|Execution failed|^> |error:|Could not|not found|Unresolved" build.log \
