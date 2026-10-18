@@ -47,14 +47,24 @@ jobs:
 
       - name: Verify project files
         run: |
-          set -eu
-          test -f settings.gradle.kts
-          test -f build.gradle.kts
-          test -f gradle.properties
-          test -f app/build.gradle.kts
-          test -f app/src/main/AndroidManifest.xml
-          test -f app/src/main/java/com/naol/privateapp/MainActivity.kt
-          test -f app/src/main/java/com/naol/privateapp/AlarmService.kt
+          echo "=== Repo files ==="
+          find . -type f -not -path "./.git/*" | sort
+          echo "=== Checking required files ==="
+          for f in \
+            settings.gradle.kts \
+            build.gradle.kts \
+            gradle.properties \
+            app/build.gradle.kts \
+            app/src/main/AndroidManifest.xml \
+            app/src/main/java/com/naol/privateapp/MainActivity.kt \
+            app/src/main/java/com/naol/privateapp/AlarmService.kt
+          do
+            if [ -f "$f" ]; then
+              echo "OK       $f"
+            else
+              echo "MISSING  $f"
+            fi
+          done
 
       - name: Build APK
         run: gradle --no-daemon clean assembleDebug
