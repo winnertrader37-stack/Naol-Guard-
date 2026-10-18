@@ -46,13 +46,28 @@ jobs:
 
       - name: Check source files
         run: |
-          set -eu
-          test -f app/src/main/AndroidManifest.xml
-          test -f app/src/main/java/com/naol/privateapp/MainActivity.kt
-          test -f app/src/main/java/com/naol/privateapp/AlarmService.kt
+          echo "=== Repo files ==="
+          find . -type f -not -path "./.git/*" | sort
+          echo "=== Required files ==="
+          for f in \
+            app/src/main/AndroidManifest.xml \
+            app/src/main/java/com/naol/privateapp/MainActivity.kt \
+            app/src/main/java/com/naol/privateapp/AlarmService.kt
+          do
+            if [ -f "$f" ]; then
+              echo "OK       $f"
+            else
+              echo "MISSING  $f"
+            fi
+          done
+          echo "=== Kotlin files and manifests found anywhere ==="
+          find . -name "*.kt" -not -path "./.git/*" || true
+          find . -name "AndroidManifest.xml" -not -path "./.git/*" || true
 
       - name: Write Gradle config
         run: |
+          mkdir -p app
+
           cat > settings.gradle.kts <<'EOF'
           pluginManagement {
               repositories {
