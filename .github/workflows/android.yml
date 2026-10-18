@@ -24,11 +24,8 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
         with:
-          cmdline-tools-version: 11076708
+          gradle-version: '8.10.2'
 
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses || true
