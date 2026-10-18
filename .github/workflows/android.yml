@@ -67,7 +67,23 @@ jobs:
           done
 
       - name: Build APK
-        run: gradle --no-daemon clean assembleDebug
+        run: |
+          set +e
+          gradle --no-daemon --stacktrace --console=plain clean assembleDebug 2>&1 | tee build.log
+          STATUS=${PIPESTATUS[0]}
+          if [ "$STATUS" -ne 0 ]; then
+            grep -E "^e: |What went wrong|Execution failed|^> |error:|Could not|not found|Unresolved" build.log \
+              | head -n 12 \
+              | while IFS= read -r line; do echo "::error title=Gradle error::$line"; done
+          fi
+          exit "$STATUS"
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: build.log
 
       - name: Check APK
         run: test -s app/build/outputs/apk/debug/app-debug.apk
